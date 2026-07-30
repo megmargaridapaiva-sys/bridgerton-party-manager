@@ -234,10 +234,11 @@ export default function ChatWidget({ getContext, onAction }) {
               background: C.bg, display: "flex", flexDirection: "column", gap: 10,
             }}
           >
-            {messages.map((m, i) => {
+            {messages.map((m) => {
+              const key = m.ts || `${m.role}-${m.text?.slice(0,20)}`;
               const display = m.role === "assistant" ? stripActions(m.text) : m.text;
               return (
-                <div key={i} style={{
+                <div key={key} style={{
                   alignSelf: m.role === "user" ? "flex-end" : "flex-start",
                   maxWidth: "85%",
                   background: m.role === "user" ? C.rosa : C.card,
@@ -249,7 +250,7 @@ export default function ChatWidget({ getContext, onAction }) {
                   border: m.role === "user" ? "none" : `1px solid ${C.line}`,
                   boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 }}>
-                  {display || (m.role === "assistant" && sending && i === messages.length - 1
+                  {display || (m.role === "assistant" && sending && key === (messages[messages.length - 1]?.ts || "")
                     ? <span style={{ color: C.muted, fontStyle: "italic" }}>digitando…</span>
                     : "")}
                 </div>

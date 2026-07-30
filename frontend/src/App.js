@@ -376,8 +376,8 @@ export default function App() {
               { l:"Fornecedores", v:`${fornContr}/${fornecedores.length}`, c:C.verde },
               { l:"Confirmados", v:`${convConf}/${convidados.length}`, c:C.dourado },
               { l:"Realizado", v:fmt(totalReal), c:C.azul },
-            ].map((k,i) => (
-              <div key={i} style={{ flexShrink:0, background:"rgba(255,255,255,0.06)",
+            ].map((k) => (
+              <div key={k.l} style={{ flexShrink:0, background:"rgba(255,255,255,0.06)",
                 borderRadius:10, padding:"9px 12px", minWidth:80 }}>
                 <div style={{ fontSize:16, fontWeight:300, color:k.c }}>{k.v}</div>
                 <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", marginTop:1, letterSpacing:0.5 }}>{k.l}</div>
@@ -392,7 +392,7 @@ export default function App() {
 
           <div style={{ display:"flex", overflowX:"auto", scrollbarWidth:"none" }}>
             {(view==="pro" ? TABS_PRO : TABS_FAM).map((t,i) => (
-              <button key={i} data-testid={`tab-${i}-btn`} onClick={() => setTab(i)}
+              <button key={t} data-testid={`tab-${i}-btn`} onClick={() => setTab(i)}
                 style={{ flexShrink:0, padding:"9px 14px", border:"none", background:"transparent",
                   cursor:"pointer", fontFamily:"inherit", fontSize:11, letterSpacing:1,
                   textTransform:"uppercase", transition:"all 0.2s",
@@ -654,8 +654,8 @@ export default function App() {
                     { l:"Orçamento familiar", v:65000, c:"rgba(255,255,255,0.4)" },
                     { l:"Total previsto", v:totalPrev, c:C.dourado },
                     { l:"Total realizado", v:totalReal, c:C.verde },
-                  ].map((r,i) => (
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  ].map((r) => (
+                    <div key={r.l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                       <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{r.l}</span>
                       <span style={{ fontSize:16, fontWeight:300, color:r.c }}>{fmt(r.v)}</span>
                     </div>
@@ -743,7 +743,7 @@ export default function App() {
                     { l:"📍 Local", v:DEBUTANTE.local },
                     { l:"👥 Convidados", v:DEBUTANTE.convidados },
                   ].map((r,i) => (
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                    <div key={r.l} style={{ display:"flex", justifyContent:"space-between",
                       padding:"7px 0", borderTop:i>0?`1px solid rgba(255,255,255,0.06)`:"none" }}>
                       <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{r.l}</span>
                       <span style={{ fontSize:12, color:"rgba(255,255,255,0.8)" }}>{r.v}</span>
@@ -782,7 +782,7 @@ export default function App() {
                     { s:"Ajuste de roteiro", r:"Assessoria resolve", i:"📋" },
                     { s:"Momentos emocionais", r:"Família aproveita", i:"💛" },
                   ].map((item,i) => (
-                    <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0",
+                    <div key={item.s} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0",
                       borderTop:i>0?"1px solid rgba(255,255,255,0.06)":"none" }}>
                       <span style={{ fontSize:18 }}>{item.i}</span>
                       <span style={{ flex:1, fontSize:12, color:"rgba(255,255,255,0.6)" }}>{item.s}</span>
@@ -809,7 +809,7 @@ export default function App() {
                 </p>
                 <Input testId="fam-busca" value={busca} onChange={setBusca} placeholder="🔍 Buscar..." style={{ marginBottom:10 }} />
                 <Card style={{ overflow:"hidden" }}>
-                  {convidados.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase())).map((c,i) => (
+                  {convFamBuscados.map((c,i) => (
                     <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
                       borderTop:i>0?`1px solid ${C.line}`:"none",
                       background:c.confirmado==="confirmado"?"#F0FFF6":C.card }}>
@@ -865,7 +865,7 @@ export default function App() {
                     { l:"Total previsto", v:totalPrev, c:C.dourado },
                     { l:"Total realizado até agora", v:totalReal, c:C.verde },
                   ].map((r,i) => (
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                    <div key={r.l} style={{ display:"flex", justifyContent:"space-between",
                       padding:"9px 0", borderTop:i>0?"1px solid rgba(255,255,255,0.06)":"none" }}>
                       <span style={{ fontSize:13, color:"rgba(255,255,255,0.5)" }}>{r.l}</span>
                       <span style={{ fontSize:18, fontWeight:300, color:r.c }}>{fmt(r.v)}</span>
