@@ -3,7 +3,7 @@ import "@/App.css";
 import ChatWidget from "@/ChatWidget";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const PARTY_DATE = new Date("2026-09-15T20:00:00");
+const PARTY_DATE = new Date("2026-09-19T20:00:00");
 const daysUntilParty = () => Math.max(0, Math.ceil((PARTY_DATE - new Date()) / 86400000));
 
 // ─── PALETTE ─────────────────────────────────────────────────
@@ -19,8 +19,8 @@ const C = {
 
 // ─── REAL DATA ────────────────────────────────────────────────
 const DEBUTANTE = {
-  nome: "Ana Clara", tema: "Jardim Encantado", data: "Setembro 2026",
-  convidados: "120", local: "Buffet Castelo", cor: "Tons de Rosa",
+  nome: "Ana Clara", tema: "Bridgerton Encantado", data: "19 de Setembro 2026",
+  convidados: "120", local: "Buffet Castelo", cor: "Tons Rosa e Branco",
 };
 
 const ORCAMENTO_CATS = [
@@ -266,6 +266,9 @@ export default function App() {
     const matchFiltro = filtroConv==="todos" || c.confirmado===filtroConv;
     return matchBusca && matchFiltro;
   });
+
+  const convFamBuscados = convidados.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()));
+  const fornContratadosLista = fornecedores.filter(f => f.status==="contratado"||f.status==="pago");
 
   // ── Alertas proativos ──
   const dias = daysUntilParty();

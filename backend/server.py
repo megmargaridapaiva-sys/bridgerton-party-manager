@@ -55,8 +55,8 @@ class RsvpConfirm(BaseModel):
 # ── System prompt builder ──────────────────────────────────────────
 def build_system_message(context: Optional[Dict[str, Any]]) -> str:
     base = (
-        "Você é a Assistente da Festa de 15 Anos da Ana Clara — tema Jardim Encantado, "
-        "Setembro de 2026, Buffet Castelo, 120 convidados, orçamento familiar de R$ 65.000. "
+        "Você é a Assistente da Festa de 15 Anos da Ana Clara — tema Bridgerton Encantado, "
+        "19 de Setembro de 2026, Buffet Castelo, 120 convidados, orçamento familiar de R$ 65.000. "
         "Responda SEMPRE em português brasileiro, de forma acolhedora, prática e curta "
         "(máx. 6 linhas quando possível).\n\n"
         "IMPORTANTE — AÇÕES DIRETAS NO APP:\n"
@@ -84,7 +84,7 @@ def build_system_message(context: Optional[Dict[str, Any]]) -> str:
 
         days = context.get("days_until_party")
         if days is not None:
-            parts.append(f"Faltam {days} dias para a festa (data-alvo: 15 de Setembro de 2026).")
+            parts.append(f"Faltam {days} dias para a festa (data-alvo: 19 de Setembro de 2026).")
 
         # Checklist items with IDs
         items = context.get("checklist_items") or []
