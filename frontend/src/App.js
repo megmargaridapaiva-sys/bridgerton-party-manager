@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import "@/App.css";
 import ChatWidget from "@/ChatWidget";
 
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const PARTY_DATE = new Date("2026-09-15T20:00:00");
+const daysUntilParty = () => Math.max(0, Math.ceil((PARTY_DATE - new Date()) / 86400000));
+
 // ─── PALETTE ─────────────────────────────────────────────────
 const C = {
   rosa: "#C9A0DC", rosaD: "#9B6BB5", rosaLt: "#F5EEF8",
@@ -220,6 +224,25 @@ export default function App() {
   useEffect(() => { localStorage.setItem("ac_forn", JSON.stringify(fornecedores)); }, [fornecedores]);
   useEffect(() => { localStorage.setItem("ac_conv", JSON.stringify(convidados)); }, [convidados]);
 
+  // Pull RSVP confirmations from backend and merge into local state
+  useEffect(() => {
+    const pull = () => {
+      fetch(`${API}/rsvp/all`).then(r => r.ok ? r.json() : []).then(list => {
+        if (!Array.isArray(list) || list.length === 0) return;
+        setConv(prev => prev.map(c => {
+          const found = list.find(r => r.guest_id === c.id);
+          if (!found) return c;
+          const remoteStatus = found.status === "confirmado" ? "confirmado" : "pendente";
+          if (c.confirmado === remoteStatus && (c.rsvpMsg || "") === (found.message || "")) return c;
+          return { ...c, confirmado: remoteStatus, rsvpMsg: found.message || "" };
+        }));
+      }).catch(() => {});
+    };
+    pull();
+    const iv = setInterval(pull, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
   const toggleCheck = (faseId, idx) => {
     const key = `${faseId}-${idx}`;
     setCheck(p => ({ ...p, [key]: !p[key] }));
@@ -244,19 +267,76 @@ export default function App() {
     return matchBusca && matchFiltro;
   });
 
+  // ── Alertas proativos ──
+  const dias = daysUntilParty();
+  const overCats = ORCAMENTO_CATS.map(c => {
+    const p = c.itens.reduce((s,i)=>s+(i.previsto||0),0);
+    const r = c.itens.reduce((s,i)=>s+(i.real||0),0);
+    return { cat: c.cat, previsto: p, real: r, diff: r - p };
+  }).filter(x => x.diff > 0 && x.previsto > 0);
+  const fornPend = fornecedores.filter(f => f.status === "pendente").length;
+
   const getChatContext = () => ({
     debutante: DEBUTANTE,
+    days_until_party: dias,
     checklist_progress: { done: totalDone, total: totalItems, pct: globalPct },
+    checklist_items: CHECKLIST_FASES.flatMap(f =>
+      f.itens.map((label, idx) => ({
+        faseId: f.id, idx, label,
+        done: !!checklist[`${f.id}-${idx}`],
+      }))
+    ),
     fornecedores: fornecedores.map(f => ({
       cat: f.cat, nome: f.nome, valor: f.valor, status: f.status, obs: f.obs,
     })),
     convidados_stats: { confirmados: convConf, total: convidados.length },
+    convidados_list: convidados.map(c => ({
+      id: c.id, nome: c.nome, confirmado: c.confirmado, mesa: c.mesa || "",
+    })),
     orcamento: ORCAMENTO_CATS.map(c => ({
       cat: c.cat,
       previsto: c.itens.reduce((s,i)=>s+(i.previsto||0),0),
       real: c.itens.reduce((s,i)=>s+(i.real||0),0),
     })),
   });
+
+  // ── Ações vindas do chat ──
+  const handleChatAction = (a) => {
+    const { type, args } = a;
+    if (type === "CHECK") {
+      const [faseId, idx] = args.map(Number);
+      const fase = CHECKLIST_FASES.find(f => f.id === faseId);
+      if (!fase || !fase.itens[idx]) return null;
+      toggleCheck(faseId, idx);
+      return `Checklist: "${fase.itens[idx]}" alterado`;
+    }
+    if (type === "CONFIRM" || type === "UNCONFIRM") {
+      const id = Number(args[0]);
+      const conv = convidados.find(c => c.id === id);
+      if (!conv) return null;
+      updateConv(id, "confirmado", type === "CONFIRM" ? "confirmado" : "pendente");
+      return `${conv.nome} ${type === "CONFIRM" ? "confirmado(a)" : "movido(a) para pendente"}`;
+    }
+    if (type === "MESA") {
+      const id = Number(args[0]);
+      const num = String(args[1] || "").replace(/\D/g, "");
+      const conv = convidados.find(c => c.id === id);
+      if (!conv || !num) return null;
+      updateConv(id, "mesa", num);
+      return `${conv.nome} → Mesa ${num}`;
+    }
+    return null;
+  };
+
+  const copyRsvpLink = (c) => {
+    const base = window.location.origin;
+    const url = `${base}/rsvp/${c.id}?n=${encodeURIComponent(c.nome)}`;
+    navigator.clipboard.writeText(url).then(() => {
+      alert(`Link copiado! 🌸\n\n${url}`);
+    }).catch(() => {
+      prompt("Copie o link do RSVP:", url);
+    });
+  };
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Palatino Linotype',Georgia,serif", color:C.txt }}>
@@ -327,6 +407,66 @@ export default function App() {
 
       {/* ── CONTENT ── */}
       <div style={{ maxWidth:680, margin:"0 auto", padding:"18px 14px 64px" }}>
+
+        {/* ── ALERTAS PROATIVOS ── */}
+        {(overCats.length > 0 || dias < 180 || fornPend > 0) && (
+          <div data-testid="alerts-panel" style={{ marginBottom:14, display:"flex", flexDirection:"column", gap:8 }}>
+            {dias >= 0 && (
+              <div style={{
+                background: dias < 30 ? "#FDECEA" : dias < 90 ? "#FDF4DC" : "#EAF4F0",
+                border: `1px solid ${dias < 30 ? "#F5C6CB" : dias < 90 ? "#EED9A1" : "#C8E0D3"}`,
+                borderRadius:12, padding:"10px 14px",
+                display:"flex", alignItems:"center", gap:10,
+              }}>
+                <span style={{ fontSize:20 }}>{dias < 30 ? "⏰" : dias < 90 ? "🌸" : "📅"}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color: dias<30 ? "#8A2A25" : dias<90 ? "#8A6A20" : C.verdeD }}>
+                    Faltam {dias} dias para a festa
+                  </div>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>
+                    {dias < 30 ? "Reta final — priorize confirmações e pagamentos"
+                      : dias < 90 ? "Fase intensa — feche fornecedores pendentes"
+                      : "Boa margem — siga o cronograma tranquila 🌿"}
+                  </div>
+                </div>
+              </div>
+            )}
+            {overCats.length > 0 && (
+              <div style={{
+                background:"#FDECEA", border:"1px solid #F5C6CB",
+                borderRadius:12, padding:"10px 14px",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                  <span style={{ fontSize:20 }}>⚠️</span>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#8A2A25" }}>
+                    {overCats.length} {overCats.length===1 ? "categoria" : "categorias"} acima do previsto
+                  </div>
+                </div>
+                <div style={{ fontSize:11, color:C.muted, paddingLeft:30 }}>
+                  {overCats.slice(0,3).map(x => `${x.cat} (+${fmt(x.diff)})`).join(" · ")}
+                  {overCats.length > 3 && ` · +${overCats.length-3} outras`}
+                </div>
+              </div>
+            )}
+            {fornPend > 0 && view === "pro" && (
+              <div style={{
+                background:"#E8F0FF", border:"1px solid #C8D8F0",
+                borderRadius:12, padding:"10px 14px",
+                display:"flex", alignItems:"center", gap:10,
+              }}>
+                <span style={{ fontSize:20 }}>📋</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#3A5BA0" }}>
+                    {fornPend} {fornPend===1?"fornecedor pendente":"fornecedores pendentes"}
+                  </div>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>
+                    Pergunte à assistente 🌸 quais fechar primeiro
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ════ PRO VIEW ════ */}
         {view==="pro" && (
@@ -475,6 +615,18 @@ export default function App() {
                       {c.mesa && (
                         <Pill label={`Mesa ${c.mesa}`} color={C.azul} bg={`${C.azul}18`} />
                       )}
+                      <button
+                        data-testid={`conv-${c.id}-rsvp-link`}
+                        onClick={() => copyRsvpLink(c)}
+                        title="Copiar link RSVP"
+                        style={{
+                          fontSize:11, border:`1px solid ${C.line}`, borderRadius:5,
+                          padding:"3px 7px", cursor:"pointer",
+                          background:"#FDF9FF", color:C.rosaD, fontFamily:"system-ui",
+                          fontWeight:600, letterSpacing:0.3,
+                        }}>
+                        🔗
+                      </button>
                       <select data-testid={`conv-${c.id}-mesa`} value={c.mesa||""} onChange={e=>updateConv(c.id,"mesa",e.target.value)}
                         style={{ fontSize:11, border:`1px solid ${C.line}`, borderRadius:5, padding:"3px 6px",
                           fontFamily:"inherit", background:"#FAFAF8", color:C.muted, outline:"none", width:80 }}>
@@ -745,7 +897,7 @@ export default function App() {
         )}
       </div>
 
-      <ChatWidget getContext={getChatContext} />
+      <ChatWidget getContext={getChatContext} onAction={handleChatAction} />
     </div>
   );
 }

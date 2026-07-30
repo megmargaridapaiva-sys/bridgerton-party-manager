@@ -12,6 +12,8 @@ const C = {
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
 
+const ACTION_RE = /\[\[(CHECK|CONFIRM|UNCONFIRM|MESA):([^\]]+)\]\]/g;
+
 function getSessionId() {
   let sid = localStorage.getItem("ac_chat_sid");
   if (!sid) {
@@ -21,13 +23,30 @@ function getSessionId() {
   return sid;
 }
 
-export default function ChatWidget({ getContext }) {
+// Strip action tokens from displayed text (they remain in raw for parsing)
+const stripActions = (t) => (t || "").replace(ACTION_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+
+function parseActions(rawText) {
+  const out = [];
+  let m;
+  const re = new RegExp(ACTION_RE.source, "g");
+  while ((m = re.exec(rawText)) !== null) {
+    const [, type, argStr] = m;
+    const args = argStr.split(":").map(s => s.trim());
+    out.push({ type, args });
+  }
+  return out;
+}
+
+export default function ChatWidget({ getContext, onAction }) {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([]); // {role, text (raw incl tokens)}
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState(null);
   const scrollRef = useRef(null);
   const sessionId = useRef(getSessionId());
+  const executedRef = useRef(new Set()); // avoid double-execute on same msg
 
   useEffect(() => {
     if (open && messages.length === 0) {
@@ -39,7 +58,7 @@ export default function ChatWidget({ getContext }) {
           } else {
             setMessages([{
               role: "assistant",
-              text: "Oi! 🌸 Sou a assistente da festa da Ana Clara. Posso ajudar com checklist, fornecedores, convidados ou orçamento. O que você quer saber?",
+              text: "Oi! 🌸 Sou a assistente da festa da Ana Clara. Posso ajudar com checklist, fornecedores, convidados e orçamento — e também executo pedidos como \"marca o item de RSVP\" ou \"confirma a Ana Paula\". O que precisa?",
             }]);
           }
         })
@@ -55,11 +74,29 @@ export default function ChatWidget({ getContext }) {
     }
   }, [messages, sending]);
 
+  const runActions = (rawText, msgKey) => {
+    if (!onAction) return;
+    if (executedRef.current.has(msgKey)) return;
+    const actions = parseActions(rawText);
+    if (actions.length === 0) return;
+    executedRef.current.add(msgKey);
+    const summary = [];
+    for (const a of actions) {
+      const ok = onAction(a);
+      if (ok) summary.push(ok);
+    }
+    if (summary.length > 0) {
+      setToast(summary.join(" · "));
+      setTimeout(() => setToast(null), 4000);
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
     setInput("");
-    setMessages(m => [...m, { role: "user", text }, { role: "assistant", text: "" }]);
+    const now = Date.now();
+    setMessages(m => [...m, { role: "user", text, ts: now }, { role: "assistant", text: "", ts: now + 1 }]);
     setSending(true);
 
     try {
@@ -75,6 +112,7 @@ export default function ChatWidget({ getContext }) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      let finalText = "";
 
       while (true) {
         const { value, done } = await reader.read();
@@ -89,12 +127,13 @@ export default function ChatWidget({ getContext }) {
           if (payload.startsWith("[ERROR]")) {
             setMessages(m => {
               const copy = [...m];
-              copy[copy.length - 1] = { role: "assistant", text: "😔 " + payload };
+              copy[copy.length - 1] = { ...copy[copy.length - 1], text: "😔 " + payload };
               return copy;
             });
             continue;
           }
           const chunk = payload.replace(/\\n/g, "\n");
+          finalText += chunk;
           setMessages(m => {
             const copy = [...m];
             const last = copy[copy.length - 1];
@@ -103,10 +142,13 @@ export default function ChatWidget({ getContext }) {
           });
         }
       }
+
+      // Execute actions from the complete response
+      runActions(finalText, String(now + 1));
     } catch (e) {
       setMessages(m => {
         const copy = [...m];
-        copy[copy.length - 1] = { role: "assistant", text: "😔 Não consegui responder agora. Tenta de novo em instantes." };
+        copy[copy.length - 1] = { ...copy[copy.length - 1], text: "😔 Não consegui responder agora. Tenta de novo em instantes." };
         return copy;
       });
     } finally {
@@ -142,6 +184,20 @@ export default function ChatWidget({ getContext }) {
         {open ? "✕" : "🌸"}
       </button>
 
+      {/* Action toast */}
+      {toast && (
+        <div data-testid="chat-toast" style={{
+          position: "fixed", bottom: 90, right: 90, zIndex: 10000,
+          background: C.verde, color: "#fff",
+          padding: "10px 16px", borderRadius: 20,
+          fontSize: 12, fontFamily: "system-ui", fontWeight: 600,
+          boxShadow: "0 6px 20px rgba(74,138,115,0.4)",
+          maxWidth: 320,
+        }}>
+          ✓ {toast}
+        </div>
+      )}
+
       {/* Panel */}
       {open && (
         <div
@@ -157,7 +213,6 @@ export default function ChatWidget({ getContext }) {
             fontFamily: "'Palatino Linotype',Georgia,serif",
           }}
         >
-          {/* Header */}
           <div style={{
             background: `linear-gradient(150deg, ${C.escuro}, #241C2C)`,
             padding: "14px 18px", color: "#fff",
@@ -167,11 +222,10 @@ export default function ChatWidget({ getContext }) {
             </div>
             <div style={{ fontSize: 17, fontStyle: "italic" }}>Festa da Ana Clara 🌸</div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
-              powered by Gemini 3 Flash
+              powered by Gemini 3 Flash · executa ações
             </div>
           </div>
 
-          {/* Messages */}
           <div
             ref={scrollRef}
             data-testid="chat-messages"
@@ -180,27 +234,29 @@ export default function ChatWidget({ getContext }) {
               background: C.bg, display: "flex", flexDirection: "column", gap: 10,
             }}
           >
-            {messages.map((m, i) => (
-              <div key={i} style={{
-                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                maxWidth: "85%",
-                background: m.role === "user" ? C.rosa : C.card,
-                color: m.role === "user" ? "#fff" : C.txt,
-                padding: "9px 13px", borderRadius: 14,
-                borderBottomRightRadius: m.role === "user" ? 4 : 14,
-                borderBottomLeftRadius: m.role === "user" ? 14 : 4,
-                fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap",
-                border: m.role === "user" ? "none" : `1px solid ${C.line}`,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}>
-                {m.text || (m.role === "assistant" && sending && i === messages.length - 1
-                  ? <span style={{ color: C.muted, fontStyle: "italic" }}>digitando…</span>
-                  : "")}
-              </div>
-            ))}
+            {messages.map((m, i) => {
+              const display = m.role === "assistant" ? stripActions(m.text) : m.text;
+              return (
+                <div key={i} style={{
+                  alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: "85%",
+                  background: m.role === "user" ? C.rosa : C.card,
+                  color: m.role === "user" ? "#fff" : C.txt,
+                  padding: "9px 13px", borderRadius: 14,
+                  borderBottomRightRadius: m.role === "user" ? 4 : 14,
+                  borderBottomLeftRadius: m.role === "user" ? 14 : 4,
+                  fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap",
+                  border: m.role === "user" ? "none" : `1px solid ${C.line}`,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                }}>
+                  {display || (m.role === "assistant" && sending && i === messages.length - 1
+                    ? <span style={{ color: C.muted, fontStyle: "italic" }}>digitando…</span>
+                    : "")}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Input */}
           <div style={{
             padding: 10, borderTop: `1px solid ${C.line}`,
             display: "flex", gap: 8, background: C.card,
@@ -210,7 +266,7 @@ export default function ChatWidget({ getContext }) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={onKey}
-              placeholder="Pergunte sobre a festa..."
+              placeholder="Ex: confirma a Ana Paula..."
               rows={1}
               style={{
                 flex: 1, padding: "9px 12px", borderRadius: 20,
