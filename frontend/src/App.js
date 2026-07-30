@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "@/App.css";
+import ChatWidget from "@/ChatWidget";
 
 // ─── PALETTE ─────────────────────────────────────────────────
 const C = {
@@ -241,6 +242,20 @@ export default function App() {
     const matchBusca = c.nome.toLowerCase().includes(busca.toLowerCase());
     const matchFiltro = filtroConv==="todos" || c.confirmado===filtroConv;
     return matchBusca && matchFiltro;
+  });
+
+  const getChatContext = () => ({
+    debutante: DEBUTANTE,
+    checklist_progress: { done: totalDone, total: totalItems, pct: globalPct },
+    fornecedores: fornecedores.map(f => ({
+      cat: f.cat, nome: f.nome, valor: f.valor, status: f.status, obs: f.obs,
+    })),
+    convidados_stats: { confirmados: convConf, total: convidados.length },
+    orcamento: ORCAMENTO_CATS.map(c => ({
+      cat: c.cat,
+      previsto: c.itens.reduce((s,i)=>s+(i.previsto||0),0),
+      real: c.itens.reduce((s,i)=>s+(i.real||0),0),
+    })),
   });
 
   return (
@@ -729,6 +744,8 @@ export default function App() {
           </>
         )}
       </div>
+
+      <ChatWidget getContext={getChatContext} />
     </div>
   );
 }
