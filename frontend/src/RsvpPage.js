@@ -81,11 +81,8 @@ export default function RsvpPage() {
             Os 15 anos de<br/>
             <span style={{ color: C.rosa, fontSize: 34 }}>Ana Clara</span> 🌸
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 12, letterSpacing: 1 }}>
-            🌿 JARDIM ENCANTADO
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 6 }}>
-            📅 Setembro 2026 · 📍 Buffet Castelo
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 12 }}>
+            📅 19 de setembro de 2026 · 📍 Buffet Castelo
           </div>
         </div>
 
@@ -181,7 +178,7 @@ export default function RsvpPage() {
           marginTop: 22, textAlign: "center", fontSize: 10,
           color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase",
         }}>
-          Método Experiência 15 RP
+          Método RP Experiências
         </div>
       </div>
     </div>

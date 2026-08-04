@@ -19,7 +19,7 @@ const C = {
 
 // ─── REAL DATA ────────────────────────────────────────────────
 const DEBUTANTE = {
-  nome: "Ana Clara", tema: "Bridgerton Encantado", data: "19 de Setembro 2026",
+  nome: "Ana Clara", tema: "", data: "19 de setembro de 2026",
   convidados: "120", local: "Buffet Castelo", cor: "Tons Rosa e Branco",
 };
 
@@ -202,8 +202,8 @@ const Input = ({ value, onChange, placeholder, style={}, testId }) => (
 );
 
 // ─── MAIN ─────────────────────────────────────────────────────
-export default function App() {
-  const [view, setView] = useState("pro");
+export default function App({ familyOnly = false }) {
+  const [view, setView] = useState(familyOnly ? "familia" : "pro");
   const [tab, setTab] = useState(0);
   const [checklist, setCheck] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ac_check")) || {}; } catch { return {}; }
@@ -219,6 +219,8 @@ export default function App() {
   const [expandOrc, setExpOrc] = useState(null);
   const [busca, setBusca] = useState("");
   const [filtroConv, setFiltroConv] = useState("todos");
+  const [novoFornCat, setNovoFornCat] = useState("");
+  const [novoConvNome, setNovoConvNome] = useState("");
 
   useEffect(() => { localStorage.setItem("ac_check", JSON.stringify(checklist)); }, [checklist]);
   useEffect(() => { localStorage.setItem("ac_forn", JSON.stringify(fornecedores)); }, [fornecedores]);
@@ -249,6 +251,36 @@ export default function App() {
   };
   const updateForn = (id, field, val) => setForn(p => p.map(f => f.id!==id ? f : {...f,[field]:val}));
   const updateConv = (id, field, val) => setConv(p => p.map(c => c.id!==id ? c : {...c,[field]:val}));
+
+  const addFornecedor = () => {
+    const cat = novoFornCat.trim();
+    if (!cat) return;
+    setForn(p => {
+      const nextId = p.length > 0 ? Math.max(...p.map(x => x.id)) + 1 : 1;
+      return [...p, { id: nextId, cat, nome:"", contato:"", email:"", valor:"", status:"pendente", obs:"" }];
+    });
+    setNovoFornCat("");
+  };
+
+  const removeFornecedor = (id) => {
+    if (!window.confirm("Remover este fornecedor?")) return;
+    setForn(p => p.filter(f => f.id !== id));
+  };
+
+  const addConvidado = () => {
+    const nome = novoConvNome.trim();
+    if (!nome) return;
+    setConv(p => {
+      const nextId = p.length > 0 ? Math.max(...p.map(x => x.id)) + 1 : 1;
+      return [...p, { id: nextId, nome, mesa:"", confirmado:"pendente", criancas:"não", obs:"" }];
+    });
+    setNovoConvNome("");
+  };
+
+  const removeConvidado = (id) => {
+    if (!window.confirm("Remover este convidado?")) return;
+    setConv(p => p.filter(c => c.id !== id));
+  };
 
   const totalDone = CHECKLIST_FASES.flatMap(f => f.itens.map((_,i) => `${f.id}-${i}`)).filter(k => checklist[k]).length;
   const totalItems = CHECKLIST_FASES.reduce((s,f) => s+f.itens.length, 0);
@@ -353,23 +385,25 @@ export default function App() {
 
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
             <div>
-              <div style={{ fontSize:9, letterSpacing:5, color:C.rosa, textTransform:"uppercase", marginBottom:3 }}>Método Experiência</div>
-              <h1 style={{ fontSize:30, fontWeight:400, color:"#fff", margin:0, fontStyle:"italic", lineHeight:1 }}>15 RP</h1>
+              <div style={{ fontSize:9, letterSpacing:5, color:C.rosa, textTransform:"uppercase", marginBottom:3 }}>Método RP</div>
+              <h1 style={{ fontSize:30, fontWeight:400, color:"#fff", margin:0, fontStyle:"italic", lineHeight:1 }}>Experiências</h1>
               <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:3 }}>
-                {DEBUTANTE.nome} · {DEBUTANTE.tema} · {DEBUTANTE.data}
+                15 anos {DEBUTANTE.nome} · {DEBUTANTE.data}
               </div>
             </div>
-            <div style={{ display:"flex", borderRadius:10, overflow:"hidden", border:"1px solid rgba(255,255,255,0.1)" }}>
-              {[["pro","🔧"],["familia","🌸"]].map(([v,icon]) => (
-                <button key={v} data-testid={`view-${v}-btn`} onClick={() => { setView(v); setTab(0); }}
-                  style={{ padding:"7px 12px", border:"none", cursor:"pointer", fontFamily:"inherit",
-                    fontSize:11, textTransform:"uppercase", letterSpacing:1, transition:"all 0.2s",
-                    background: view===v ? C.rosa : "transparent",
-                    color: view===v ? "#fff" : "rgba(255,255,255,0.35)" }}>
-                  {icon} {v==="pro" ? "Pro" : "Família"}
-                </button>
-              ))}
-            </div>
+            {!familyOnly && (
+              <div style={{ display:"flex", borderRadius:10, overflow:"hidden", border:"1px solid rgba(255,255,255,0.1)" }}>
+                {[["pro","🔧"],["familia","🌸"]].map(([v,icon]) => (
+                  <button key={v} data-testid={`view-${v}-btn`} onClick={() => { setView(v); setTab(0); }}
+                    style={{ padding:"7px 12px", border:"none", cursor:"pointer", fontFamily:"inherit",
+                      fontSize:11, textTransform:"uppercase", letterSpacing:1, transition:"all 0.2s",
+                      background: view===v ? C.rosa : "transparent",
+                      color: view===v ? "#fff" : "rgba(255,255,255,0.35)" }}>
+                    {icon} {v==="pro" ? "Pro" : "Família"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* KPIs */}
@@ -533,7 +567,29 @@ export default function App() {
             {tab===1 && (
               <div data-testid="fornecedores-view">
                 <h2 style={{ fontSize:19, fontWeight:400, fontStyle:"italic", margin:"0 0 4px" }}>Fornecedores</h2>
-                <p style={{ fontSize:12, color:C.muted, margin:"0 0 16px" }}>{fornContr} contratados de {fornecedores.length}</p>
+                <p style={{ fontSize:12, color:C.muted, margin:"0 0 12px" }}>{fornContr} contratados de {fornecedores.length}</p>
+
+                {/* Adicionar fornecedor */}
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  <input
+                    data-testid="novo-forn-input"
+                    value={novoFornCat}
+                    onChange={e=>setNovoFornCat(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter") addFornecedor(); }}
+                    placeholder="+ Nova categoria/fornecedor..."
+                    style={{ flex:1, padding:"9px 12px", borderRadius:10, outline:"none",
+                      border:`1.5px solid ${C.line}`, background:"#FDF9FF", fontSize:13,
+                      fontFamily:"inherit", color:C.txt, boxSizing:"border-box" }} />
+                  <button data-testid="add-forn-btn" onClick={addFornecedor}
+                    disabled={!novoFornCat.trim()}
+                    style={{ padding:"9px 16px", borderRadius:10, border:"none",
+                      background: novoFornCat.trim() ? C.rosa : C.line,
+                      color:"#fff", fontSize:13, cursor: novoFornCat.trim() ? "pointer" : "not-allowed",
+                      fontFamily:"inherit", fontWeight:600, whiteSpace:"nowrap" }}>
+                    Adicionar
+                  </button>
+                </div>
+
                 {fornecedores.map(f => {
                   const sc = STATUS_COLORS[f.status];
                   const open = expandForn===f.id;
@@ -575,6 +631,12 @@ export default function App() {
                               style={{ width:"100%", padding:"8px 10px", borderRadius:7, border:`1.5px solid ${C.line}`,
                                 fontSize:12, fontFamily:"inherit", resize:"vertical", outline:"none", boxSizing:"border-box" }} />
                           </div>
+                          <button data-testid={`forn-${f.id}-remove`} onClick={()=>removeFornecedor(f.id)}
+                            style={{ marginTop:10, background:"transparent", border:"1px solid #F5C6CB",
+                              color:"#8A2A25", padding:"6px 12px", borderRadius:8, cursor:"pointer",
+                              fontSize:11, fontFamily:"system-ui", fontWeight:600 }}>
+                            🗑 Remover fornecedor
+                          </button>
                         </div>
                       )}
                     </div>
@@ -590,6 +652,28 @@ export default function App() {
                 <p style={{ fontSize:12, color:C.muted, margin:"0 0 12px" }}>
                   {convConf} confirmados · {convidados.length} cadastrados
                 </p>
+
+                {/* Adicionar convidado */}
+                <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                  <input
+                    data-testid="novo-conv-input"
+                    value={novoConvNome}
+                    onChange={e=>setNovoConvNome(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter") addConvidado(); }}
+                    placeholder="+ Nome do novo convidado..."
+                    style={{ flex:1, padding:"9px 12px", borderRadius:10, outline:"none",
+                      border:`1.5px solid ${C.line}`, background:"#FDF9FF", fontSize:13,
+                      fontFamily:"inherit", color:C.txt, boxSizing:"border-box" }} />
+                  <button data-testid="add-conv-btn" onClick={addConvidado}
+                    disabled={!novoConvNome.trim()}
+                    style={{ padding:"9px 16px", borderRadius:10, border:"none",
+                      background: novoConvNome.trim() ? C.rosa : C.line,
+                      color:"#fff", fontSize:13, cursor: novoConvNome.trim() ? "pointer" : "not-allowed",
+                      fontFamily:"inherit", fontWeight:600, whiteSpace:"nowrap" }}>
+                    Adicionar
+                  </button>
+                </div>
+
                 <Input testId="busca-convidado" value={busca} onChange={setBusca} placeholder="🔍 Buscar convidado..." style={{ marginBottom:10 }} />
                 <div style={{ display:"flex", gap:6, marginBottom:12, overflowX:"auto", scrollbarWidth:"none" }}>
                   {[["todos","Todos"],["confirmado","✓ Confirmados"],["pendente","⏳ Pendentes"]].map(([v,l]) => (
@@ -629,6 +713,18 @@ export default function App() {
                           fontWeight:600, letterSpacing:0.3,
                         }}>
                         🔗
+                      </button>
+                      <button
+                        data-testid={`conv-${c.id}-remove`}
+                        onClick={() => removeConvidado(c.id)}
+                        title="Remover convidado"
+                        style={{
+                          fontSize:11, border:`1px solid #F5C6CB`, borderRadius:5,
+                          padding:"3px 7px", cursor:"pointer",
+                          background:"transparent", color:"#8A2A25", fontFamily:"system-ui",
+                          fontWeight:600,
+                        }}>
+                        🗑
                       </button>
                       <select data-testid={`conv-${c.id}-mesa`} value={c.mesa||""} onChange={e=>updateConv(c.id,"mesa",e.target.value)}
                         style={{ fontSize:11, border:`1px solid ${C.line}`, borderRadius:5, padding:"3px 6px",
@@ -739,7 +835,7 @@ export default function App() {
                     {DEBUTANTE.nome} 🌸
                   </div>
                   <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:14 }}>
-                    {DEBUTANTE.tema} · {DEBUTANTE.cor}
+                    15 anos · {DEBUTANTE.cor}
                   </div>
                   {[
                     { l:"📅 Data", v:DEBUTANTE.data },

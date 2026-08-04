@@ -14,13 +14,15 @@ const queryClient = new QueryClient({
   },
 });
 
-const isRsvp = typeof window !== "undefined" && window.location.pathname.startsWith("/rsvp/");
+const path = (typeof window !== "undefined" && window.location.pathname) || "/";
+const isRsvp = path.startsWith("/rsvp/");
+const isFamilia = path === "/familia" || path.startsWith("/familia/");
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      {isRsvp ? <RsvpPage /> : <App />}
+      {isRsvp ? <RsvpPage /> : <App familyOnly={isFamilia} />}
     </QueryClientProvider>
   </React.StrictMode>,
 );
